@@ -5,70 +5,65 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 #include <linux/sysfs.h>
+#include <linux/time.h>
 
 #include "mpu6050-regs.h"
+#include "mpu6050_data.h"
 
-
-enum mpu6050_data_index {
-	INDEX_ACCEL_X = 0,
-	INDEX_ACCEL_Y,
-	INDEX_ACCEL_Z,
-	INDEX_GYRO_X,
-	INDEX_GYRO_Y,
-	INDEX_GYRO_Z,
-	INDEX_TEMPERATURE,
-	INDEX_COUNT
-};
-
-struct mpu6050_data {
-	struct i2c_client *drv_client;
-	int data[INDEX_COUNT];
-};
-
-static struct mpu6050_data g_mpu6050_data;
+#define ELEMENTS_COUNT 10
+static struct mpu6050_data_holder g_mpu6050_data;
 
 static size_t get_attribute_index(struct kobj_attribute const *attribute);
 
-static int mpu6050_read_data(void)
+static int mpu6050_read_data(bool debug)
 {
 	int temp;
 	const struct i2c_client *drv_client = g_mpu6050_data.drv_client;
+	struct mpu6050_data_elements element;
 
 	if (drv_client == 0)
 		return -ENODEV;
 
 	/* accel */
-	g_mpu6050_data.data[INDEX_ACCEL_X] =
+	element.data[INDEX_ACCEL_X] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_XOUT_H));
-	g_mpu6050_data.data[INDEX_ACCEL_Y] =
+	element.data[INDEX_ACCEL_Y] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_YOUT_H));
-	g_mpu6050_data.data[INDEX_ACCEL_Z] =
+	element.data[INDEX_ACCEL_Z] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_ZOUT_H));
 	/* gyro */
-	g_mpu6050_data.data[INDEX_GYRO_X] =
+	element.data[INDEX_GYRO_X] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_XOUT_H));
-	g_mpu6050_data.data[INDEX_GYRO_Y] =
+	element.data[INDEX_GYRO_Y] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_YOUT_H));
-	g_mpu6050_data.data[INDEX_GYRO_Z] =
+	element.data[INDEX_GYRO_Z] =
 		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_ZOUT_H));
 	/* Temperature in degrees C =
 	 * (TEMP_OUT Register Value  as a signed quantity)/340 + 36.53
 	 */
 	temp = (s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_TEMP_OUT_H));
-	g_mpu6050_data.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
+	element.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
 
-	dev_info(&drv_client->dev, "sensor data read:\n");
-	dev_info(&drv_client->dev, "ACCEL[X,Y,Z] = [%d, %d, %d]\n",
-		g_mpu6050_data.data[INDEX_ACCEL_X],
-		g_mpu6050_data.data[INDEX_ACCEL_Y],
-		g_mpu6050_data.data[INDEX_ACCEL_Z]);
-	dev_info(&drv_client->dev, "GYRO[X,Y,Z] = [%d, %d, %d]\n",
-		g_mpu6050_data.data[INDEX_GYRO_X],
-		g_mpu6050_data.data[INDEX_GYRO_Y],
-		g_mpu6050_data.data[INDEX_GYRO_Z]);
-	dev_info(&drv_client->dev, "TEMP = %d\n",
-		g_mpu6050_data.data[INDEX_TEMPERATURE]);
+	// Extra data
+	element.extra_data[INDEX_TIMESTAMP] = jiffies_to_msecs(get_jiffies_64());
 
+	add_mpu6050_element(&g_mpu6050_data, &element);
+
+	if (debug) {
+		dev_info(&drv_client->dev, "sensor data read:\n");
+		dev_info(&drv_client->dev, "ACCEL[X,Y,Z] = [%d, %d, %d]\n",
+			element.data[INDEX_ACCEL_X],
+			element.data[INDEX_ACCEL_Y],
+			element.data[INDEX_ACCEL_Z]);
+		dev_info(&drv_client->dev, "GYRO[X,Y,Z] = [%d, %d, %d]\n",
+			element.data[INDEX_GYRO_X],
+			element.data[INDEX_GYRO_Y],
+			element.data[INDEX_GYRO_Z]);
+		dev_info(&drv_client->dev, "TEMP = %d\n",
+			element.data[INDEX_TEMPERATURE]);
+		dev_info(&drv_client->dev, "TIMESTAMP = %llu\n",
+			element.extra_data[INDEX_TIMESTAMP]);
+	}
 	return 0;
 }
 
@@ -144,10 +139,10 @@ static ssize_t data_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
 	size_t index = get_attribute_index(attr);
-	mpu6050_read_data();
+	mpu6050_read_data(true);
 
-	if (index < INDEX_COUNT)
-		sprintf(buf, "%d\n", g_mpu6050_data.data[index]);
+	if (index < INDEX_COUNT && g_mpu6050_data.element_iter_current)
+		sprintf(buf, "%d\n", g_mpu6050_data.element_iter_current->data.data[index]);
 	else
 		buf[0] = '\0';
 	return strlen(buf);
@@ -243,6 +238,8 @@ static int mpu6050_init(void)
 	}
 	pr_info("mpu6050: sysfs data attributes created\n");
 
+	init_mpu6050_data(&g_mpu6050_data, ELEMENTS_COUNT);
+
 	pr_info("mpu6050: module loaded\n");
 	return 0;
 
@@ -255,6 +252,7 @@ error1:
 
 static void mpu6050_exit(void)
 {
+	free_mpu6050_data(&g_mpu6050_data);
 	free_sysfs();
 
 	i2c_del_driver(&mpu6050_i2c_driver);
