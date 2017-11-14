@@ -115,5 +115,14 @@ static void add_mpu6050_element(struct mpu6050_data_holder *data,
 	}
 }
 
+struct mpu6050_data_elements* get_active_element(struct mpu6050_data_holder *data)
+{
+	struct mpu6050_data_elements* element = NULL;
+	if (!data || !data->element_iter_current)
+		return element;
+	element = &data->element_iter_current->data;
+	return element;
+}
+
 
 #endif// __MPU6050_DATA_H__

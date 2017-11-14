@@ -19,10 +19,22 @@ static int mpu6050_read_data(bool debug)
 {
 	int temp;
 	const struct i2c_client *drv_client = g_mpu6050_data.drv_client;
+	struct mpu6050_data_elements* current_element =
+		get_active_element(&g_mpu6050_data);
 	struct mpu6050_data_elements element;
+	u64 msecs = jiffies_to_msecs(get_jiffies_64());
 
 	if (drv_client == 0)
 		return -ENODEV;
+	if (current_element) {
+		msecs = msecs - current_element->extra_data[INDEX_TIMESTAMP];
+		if (msecs < MSEC_PER_SEC) {
+			if (debug)
+				dev_info(&drv_client->dev, "data reading skipped: %llu\n",
+					msecs);
+			return 0;
+		}
+	}
 
 	/* accel */
 	element.data[INDEX_ACCEL_X] =
@@ -45,7 +57,7 @@ static int mpu6050_read_data(bool debug)
 	element.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
 
 	// Extra data
-	element.extra_data[INDEX_TIMESTAMP] = jiffies_to_msecs(get_jiffies_64());
+	element.extra_data[INDEX_TIMESTAMP] = msecs;
 
 	add_mpu6050_element(&g_mpu6050_data, &element);
 
