@@ -9,10 +9,14 @@
 
 #include "mpu6050-regs.h"
 #include "mpu6050_data.h"
+#include "mpu6050_cdev.h"
 
+//data
 #define ELEMENTS_COUNT 10
 static struct mpu6050_data_holder g_mpu6050_data;
 
+
+//functionality
 static size_t get_attribute_index(struct kobj_attribute const *attribute);
 
 static int mpu6050_read_data(bool debug)
@@ -227,6 +231,7 @@ static void free_sysfs(void)
 static int mpu6050_init(void)
 {
 	int ret;
+	struct cdevs_holder *cdevs = get_cdevs();
 
 	/* Create i2c driver */
 	ret = i2c_add_driver(&mpu6050_i2c_driver);
@@ -250,11 +255,19 @@ static int mpu6050_init(void)
 	}
 	pr_info("mpu6050: sysfs data attributes created\n");
 
-	init_mpu6050_data(&g_mpu6050_data, ELEMENTS_COUNT);
+	init_mpu6050_data(&g_mpu6050_data, ELEMENTS_COUNT, mpu6050_read_data);
+
+	ret = init_cdevs(cdevs, &g_mpu6050_data);
+	if (ret) {
+		pr_err("mpu6050: failed to create cdevs: %d\n", ret);
+		goto error3;
+	}
 
 	pr_info("mpu6050: module loaded\n");
 	return 0;
 
+error3:
+	free_mpu6050_data(&g_mpu6050_data);
 error2:
 	free_sysfs();
 error1:
@@ -264,6 +277,7 @@ error1:
 
 static void mpu6050_exit(void)
 {
+	free_cdevs(get_cdevs());
 	free_mpu6050_data(&g_mpu6050_data);
 	free_sysfs();
 
