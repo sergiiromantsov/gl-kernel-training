@@ -27,11 +27,11 @@ static int mpu6050_read_data(bool debug)
 	if (drv_client == 0)
 		return -ENODEV;
 	if (current_element) {
-		msecs = msecs - current_element->extra_data[INDEX_TIMESTAMP];
-		if (msecs < MSEC_PER_SEC) {
+		u64 diff = msecs - current_element->extra_data[INDEX_TIMESTAMP];
+		if (diff < MSEC_PER_SEC) {
 			if (debug)
 				dev_info(&drv_client->dev, "data reading skipped: %llu\n",
-					msecs);
+					diff);
 			return 0;
 		}
 	}
