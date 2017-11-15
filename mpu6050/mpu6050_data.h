@@ -33,15 +33,18 @@ struct mpu6050_data_holder {
 	size_t elements_count;
 	struct mpu6050_data_list *element_iter_current;
 	struct mpu6050_data_list list;
+	int (*read_data)(bool debug);
 };
 
-static void init_mpu6050_data(struct mpu6050_data_holder *data, size_t elements_count)
+static void init_mpu6050_data(struct mpu6050_data_holder *data, size_t elements_count,
+	int (*read_data)(bool debug))
 {
 	size_t const element_size = sizeof(struct mpu6050_data_list);
 	if (!data)
 		return;
 	data->elements_count = 0;
 	data->element_iter_current = NULL;
+	data->read_data = read_data;
 
 	INIT_LIST_HEAD(&data->list.list);
 
