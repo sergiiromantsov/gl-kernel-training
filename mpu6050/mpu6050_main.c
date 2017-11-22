@@ -11,12 +11,12 @@
 #include "mpu6050_data.h"
 #include "mpu6050_cdev.h"
 
-//data
+/* data */
 #define ELEMENTS_COUNT 10
 static struct mpu6050_data_holder g_mpu6050_data;
 
 
-//functionality
+/* functionality */
 static size_t get_attribute_index(struct kobj_attribute const *attribute);
 
 static int mpu6050_read_data(bool debug)
@@ -60,7 +60,7 @@ static int mpu6050_read_data(bool debug)
 	temp = (s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_TEMP_OUT_H));
 	element.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
 
-	// Extra data
+	/* Extra data */
 	element.extra_data[INDEX_TIMESTAMP] = msecs;
 
 	add_mpu6050_element(&g_mpu6050_data, &element);
@@ -185,7 +185,7 @@ static const struct attribute *g_attributes[INDEX_COUNT + 1] = {
     NULL,
 };
 
-// Gets a number of attributes + 1 (null-terminated)
+/* Gets a number of attributes + 1 (null-terminated) */
 static size_t const attributes_count(void)
 {
 	#if 1
@@ -197,7 +197,7 @@ static size_t const attributes_count(void)
 	return count;
 }
 
-// Gets index of attribute in common array of data
+/* Gets index of attribute in common array of data */
 static size_t get_attribute_index(struct kobj_attribute const *attribute)
 {
 	size_t const count = attributes_count();
@@ -215,7 +215,7 @@ static size_t get_attribute_index(struct kobj_attribute const *attribute)
 	return index;
 }
 
-// Module initialization
+/* Module initialization */
 static struct kobject *g_kobject = NULL;
 
 static void free_sysfs(void)
@@ -290,7 +290,8 @@ static void mpu6050_exit(void)
 module_init(mpu6050_init);
 module_exit(mpu6050_exit);
 
-MODULE_AUTHOR("Andriy.Khulap <andriy.khulap@globallogic.com>+Sergii.Romantsov");
+MODULE_AUTHOR("Andriy.Khulap <andriy.khulap@globallogic.com>");
+MODULE_AUTHOR("Sergii.Romantsov <serg.cramser@gmail.com>");
 MODULE_DESCRIPTION("mpu6050 I2C acc&gyro");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("0.2");

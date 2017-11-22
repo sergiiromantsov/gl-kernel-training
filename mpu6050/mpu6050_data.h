@@ -45,4 +45,4 @@ void add_mpu6050_element(struct mpu6050_data_holder *data,
 	struct mpu6050_data_elements *element);
 struct mpu6050_data_elements* get_active_element(struct mpu6050_data_holder *data);
 
-#endif// __MPU6050_DATA_H__
+#endif /* __MPU6050_DATA_H__ */

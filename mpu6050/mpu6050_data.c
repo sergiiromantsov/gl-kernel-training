@@ -49,13 +49,13 @@ void add_mpu6050_element(struct mpu6050_data_holder *data,
 			list_first_entry(&data->list.list, struct mpu6050_data_list, list);
 	}
 	else {
-		// check if its the last element
+		/* check if its the last element */
 		is_last = list_is_last(&data->element_iter_current->list, &data->list.list);
 		if (is_last) {
 			struct mpu6050_data_list *first =
 				list_first_entry(&data->list.list, struct mpu6050_data_list, list);
 			if (first) {
-				// move first to the last and use it
+				/* move first to the last and use it */
 				list_move_tail(&first->list, &data->list.list);
 				data->element_iter_current = list_next_entry(
 					data->element_iter_current, list);
@@ -72,12 +72,14 @@ void add_mpu6050_element(struct mpu6050_data_holder *data,
 			sizeof(data->element_iter_current->data.data));
 		memcpy( data->element_iter_current->data.extra_data, element->extra_data,
 			sizeof(data->element_iter_current->data.extra_data));
-		//pr_info("%s %s: was_last: %d next %p", THIS_MODULE->name, __FUNCTION__,
-		//	is_last, data->element_iter_current);
+		/* pr_info("%s %s: was_last: %d next %p", THIS_MODULE->name, __FUNCTION__,
+			is_last, data->element_iter_current);
+		*/
 	}
 	else {
-		//pr_err("%s %s: data holder is not initialized properly",
-		//	THIS_MODULE->name, __FUNCTION__);
+		/* pr_err("%s %s: data holder is not initialized properly",
+			THIS_MODULE->name, __FUNCTION__);
+		*/
 		return;
 	}
 }

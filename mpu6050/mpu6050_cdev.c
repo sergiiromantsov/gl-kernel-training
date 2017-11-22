@@ -64,7 +64,6 @@ int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data)
 		goto error1;
 	cdevs->cdev_line.major = MAJOR(cdevs->cdev_line.dev_no);
 	cdevs->cdev_line.read_all = false;
-	//cdevs->cdev_line.dev = MKDEV(cdevs->cdev_line.major, 0);
 	cdevs->cdev_line.cdev = cdev_alloc();
 	cdevs->cdev_line.cdev->ops = &g_fops_line;
 	cdevs->cdev_line.cdev->owner = THIS_MODULE;
@@ -77,7 +76,6 @@ int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data)
 		goto error1;
 	cdevs->cdev_full.major = MAJOR(cdevs->cdev_full.dev_no);
 	cdevs->cdev_line.read_all = false;
-	//cdevs->cdev_full.dev = MKDEV(cdevs->cdev_full.major, 0);
 	cdevs->cdev_full.cdev = cdev_alloc();
 	cdevs->cdev_full.cdev->ops = &g_fops_full;
 	cdevs->cdev_full.cdev->owner = THIS_MODULE;
@@ -153,7 +151,7 @@ static ssize_t read_line(struct file *file, char __user *buffer_to, size_t count
 		cdev->read_all = true;
 	}
 	else {
-		//TODO: implement dyn-buffer
+		/* TODO: implement dyn-buffer */
 	}
 	pr_info("%s %s read to %p/%lu from %lu buffer bytes -> %lu \n",
 		THIS_MODULE->name, __FUNCTION__,
