@@ -10,6 +10,7 @@ struct cdev_instance {
 	dev_t dev_no;
 	dev_t read_all;
 	struct cdev *cdev;
+	struct mpu6050_data_list *data_iter;
 };
 
 struct cdevs_holder {
@@ -18,12 +19,7 @@ struct cdevs_holder {
 	struct mpu6050_data_holder *data;
 };
 
-static inline struct cdevs_holder *get_cdevs(void)
-{
-	static struct cdevs_holder g_cdevs_holder;
-	return &g_cdevs_holder;
-}
-
+struct cdevs_holder *get_cdevs(void);
 struct cdev_instance *get_cdev(dev_t dev_no);
 int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data);
 void free_cdevs(struct cdevs_holder *cdevs);

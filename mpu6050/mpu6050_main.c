@@ -228,7 +228,7 @@ static void free_sysfs(void)
 	}
 }
 
-static int mpu6050_init(void)
+static int __init mpu6050_init(void)
 {
 	int ret;
 	struct cdevs_holder *cdevs = get_cdevs();
@@ -275,7 +275,7 @@ error1:
 	return ret;
 }
 
-static void mpu6050_exit(void)
+static void __exit mpu6050_exit(void)
 {
 	free_cdevs(get_cdevs());
 	free_mpu6050_data(&g_mpu6050_data);
@@ -294,4 +294,4 @@ MODULE_AUTHOR("Andriy.Khulap <andriy.khulap@globallogic.com>");
 MODULE_AUTHOR("Sergii.Romantsov <serg.cramser@gmail.com>");
 MODULE_DESCRIPTION("mpu6050 I2C acc&gyro");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.2");
+MODULE_VERSION("0.3");

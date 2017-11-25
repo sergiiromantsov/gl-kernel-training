@@ -84,11 +84,29 @@ void add_mpu6050_element(struct mpu6050_data_holder *data,
 	}
 }
 
-struct mpu6050_data_elements* get_active_element(struct mpu6050_data_holder *data)
+struct mpu6050_data_elements *get_active_element(struct mpu6050_data_holder *data)
 {
 	struct mpu6050_data_elements* element = NULL;
 	if (!data || !data->element_iter_current)
 		return element;
 	element = &data->element_iter_current->data;
 	return element;
+}
+
+struct mpu6050_data_list *get_first_element(struct mpu6050_data_holder *data)
+{
+	struct mpu6050_data_list* element = NULL;
+	if (!data || !data->element_iter_current)
+		return element;
+	element = list_first_entry(&data->list.list, struct mpu6050_data_list, list);
+	return element;
+}
+
+struct mpu6050_data_list *get_next_element(struct mpu6050_data_list *element)
+{
+	struct mpu6050_data_list* next = NULL;
+	if (!element)
+		return next;
+	next = list_next_entry(element, list);
+	return next;
 }
