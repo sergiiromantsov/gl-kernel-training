@@ -32,19 +32,21 @@ struct mpu6050_data_list {
 
 struct mpu6050_data_holder {
 	struct i2c_client *drv_client;
-	size_t elements_count;
-	struct mpu6050_data_list *element_iter_current;
-	struct mpu6050_data_list list;
 	int (*read_data)(bool debug);
 };
 
-void init_mpu6050_data(struct mpu6050_data_holder *data, size_t elements_count,
+struct mpu6050_data_holder* get_mpu6050_data(void);
+void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	int (*read_data)(bool debug));
-void free_mpu6050_data(struct mpu6050_data_holder *data);
-void add_mpu6050_element(struct mpu6050_data_holder *data,
+void free_mpu6050_data(struct mpu6050_data_holder *data_);
+void add_mpu6050_element(struct mpu6050_data_holder *data_,
 	struct mpu6050_data_elements *element);
-struct mpu6050_data_elements *get_active_element(struct mpu6050_data_holder *data);
-struct mpu6050_data_list *get_first_element(struct mpu6050_data_holder *data);
-struct mpu6050_data_list *get_next_element(struct mpu6050_data_list *element);
+bool get_active_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element);
+bool get_first_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element);
+bool get_next_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element);
+bool is_last_element(struct mpu6050_data_holder *data_);
 
 #endif /* __MPU6050_DATA_H__ */

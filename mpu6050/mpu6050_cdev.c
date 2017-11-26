@@ -24,8 +24,9 @@ static void read_data(struct cdevs_holder *holder)
 {
 	if (!holder || !holder->data || !holder->data->read_data)
 	{
-		pr_err("%s %s can't read data %p/%p \n", THIS_MODULE->name,
-			__FUNCTION__, holder, holder ? holder->data : NULL);
+		pr_err("%s %s can't read data %p/%p/%p \n", THIS_MODULE->name,
+			__FUNCTION__, holder, holder ? holder->data : NULL,
+			holder && holder->data ? holder->data->read_data : NULL);
 		return;
 	}
 
@@ -85,7 +86,7 @@ int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data)
 	cdevs->cdev_line.cdev = cdev_alloc();
 	cdevs->cdev_line.cdev->ops = &g_fops_line;
 	cdevs->cdev_line.cdev->owner = THIS_MODULE;
-	cdevs->cdev_line.data_iter = NULL;
+	cdevs->cdev_line.first_element = true;
 	result = cdev_add(cdevs->cdev_line.cdev, cdevs->cdev_line.dev_no, 1);
 	if (result < 0)
 		goto error1;
@@ -98,7 +99,7 @@ int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data)
 	cdevs->cdev_full.cdev = cdev_alloc();
 	cdevs->cdev_full.cdev->ops = &g_fops_full;
 	cdevs->cdev_full.cdev->owner = THIS_MODULE;
-	cdevs->cdev_full.data_iter = NULL;
+	cdevs->cdev_full.first_element = true;
 	result = cdev_add(cdevs->cdev_full.cdev, cdevs->cdev_full.dev_no, 1);
 	if (result < 0)
 		goto error1;
@@ -122,7 +123,7 @@ static int open_cdev(struct inode *node, struct file *file)
 		if (cdev)
 		{
 			cdev->read_all = false;
-			cdev->data_iter = NULL;
+			cdev->first_element = true;
 		}
 
 		read_data(get_cdevs());
@@ -176,7 +177,8 @@ static ssize_t read_line(struct file *file, char __user *buffer_to, size_t count
 	unsigned long result = 0;
 	struct cdevs_holder *holder = get_cdevs();
 	struct cdev_instance *cdev;
-	struct mpu6050_data_elements *element;
+	struct mpu6050_data_elements element;
+	bool has_element;
 	if (!holder || !holder->cdev_line.cdev
 		|| !holder->data)
 		return result;
@@ -184,11 +186,11 @@ static ssize_t read_line(struct file *file, char __user *buffer_to, size_t count
 	if (cdev->read_all)
 		return result;
 
-	if (!holder->data->element_iter_current)
+	has_element = get_active_element(holder->data, &element);
+	if (!has_element)
 		return result;
 
-	element = &holder->data->element_iter_current->data;
-	result = read_to_user_buffer(element, buffer_to, count);
+	result = read_to_user_buffer(&element, buffer_to, count);
 
 	cdev->read_all = true;
 	pr_info("%s %s read to %p/%lu from %lu buffer bytes -> %lu \n",
@@ -202,7 +204,8 @@ static ssize_t read_full(struct file *file, char __user *buffer_to, size_t count
 	unsigned long result = 0;
 	struct cdevs_holder *holder = get_cdevs();
 	struct cdev_instance *cdev;
-	struct mpu6050_data_elements *element;
+	struct mpu6050_data_elements element;
+	bool element_read = false;
 	if (!holder || !holder->cdev_full.cdev
 		|| !holder->data)
 		return result;
@@ -211,25 +214,22 @@ static ssize_t read_full(struct file *file, char __user *buffer_to, size_t count
 	if (cdev->read_all)
 		return result;
 
-	/* no data to get */
-	if (!holder->data->element_iter_current)
-		return result;
-
-	if (!cdev->data_iter)
-		cdev->data_iter = get_first_element(holder->data);
+	if (cdev->first_element)
+		element_read = get_first_element(holder->data, &element);
 	else
-		cdev->data_iter = get_next_element(cdev->data_iter);
+		element_read = get_next_element(holder->data, &element);
 
-	pr_info("%s %s element %p\n",
-		THIS_MODULE->name, __FUNCTION__, cdev->data_iter);
+	pr_info("%s %s element read: %d\n",
+		THIS_MODULE->name, __FUNCTION__, element_read);
 
-	if (!cdev->data_iter)
+	if (element_read)
+		cdev->first_element = false;
+	else
 		return result;
 
-	element = &cdev->data_iter->data;
-	result = read_to_user_buffer(element, buffer_to, count);
+	result = read_to_user_buffer(&element, buffer_to, count);
 
-	if (holder->data->element_iter_current == cdev->data_iter)
+	if (is_last_element(holder->data))
 		cdev->read_all = true;
 
 	pr_info("%s %s read to %p/%lu from %lu buffer bytes -> %lu, read_all: %s \n",

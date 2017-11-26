@@ -1,14 +1,32 @@
 #include "mpu6050_data.h"
 
-void init_mpu6050_data(struct mpu6050_data_holder *data, size_t elements_count,
+struct mpu6050_data_holder_internal {
+	struct mpu6050_data_holder public_holder;
+	size_t elements_count;
+	struct mpu6050_data_list *element_iter_current;
+	struct mpu6050_data_list *element_iter;
+	struct mpu6050_data_list list;
+};
+
+static struct mpu6050_data_holder_internal g_mpu6050_data;
+
+struct mpu6050_data_holder* get_mpu6050_data(void)
+{
+	return (struct mpu6050_data_holder*)&g_mpu6050_data;
+}
+
+void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	int (*read_data)(bool debug))
 {
 	size_t const element_size = sizeof(struct mpu6050_data_list);
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
 	if (!data)
 		return;
 	data->elements_count = 0;
 	data->element_iter_current = NULL;
-	data->read_data = read_data;
+	data->element_iter = NULL;
+	data->public_holder.read_data = read_data;
 
 	INIT_LIST_HEAD(&data->list.list);
 
@@ -25,9 +43,11 @@ void init_mpu6050_data(struct mpu6050_data_holder *data, size_t elements_count,
 	data->element_iter_current = NULL;
 }
 
-void free_mpu6050_data(struct mpu6050_data_holder *data)
+void free_mpu6050_data(struct mpu6050_data_holder *data_)
 {
 	struct mpu6050_data_list *node, *tmp;
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
 	if (!data)
 		return;
 
@@ -38,10 +58,12 @@ void free_mpu6050_data(struct mpu6050_data_holder *data)
 	}
 }
 
-void add_mpu6050_element(struct mpu6050_data_holder *data,
+void add_mpu6050_element(struct mpu6050_data_holder *data_,
 	struct mpu6050_data_elements *element)
 {
 	int is_last = false;
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
 	if (!data || !element)
 		return;
 	if (!data->element_iter_current) {
@@ -84,29 +106,70 @@ void add_mpu6050_element(struct mpu6050_data_holder *data,
 	}
 }
 
-struct mpu6050_data_elements *get_active_element(struct mpu6050_data_holder *data)
+bool get_active_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element)
 {
-	struct mpu6050_data_elements* element = NULL;
-	if (!data || !data->element_iter_current)
-		return element;
-	element = &data->element_iter_current->data;
-	return element;
+	bool result = false;
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
+	if (!data || !data->element_iter_current || !element)
+		return result;
+	*element = data->element_iter_current->data;
+	result = true;
+	return result;
 }
 
-struct mpu6050_data_list *get_first_element(struct mpu6050_data_holder *data)
+bool get_first_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element)
 {
-	struct mpu6050_data_list* element = NULL;
-	if (!data || !data->element_iter_current)
-		return element;
-	element = list_first_entry(&data->list.list, struct mpu6050_data_list, list);
-	return element;
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
+	struct mpu6050_data_list* first = NULL;
+	bool result = false;
+	if (!data || !data->element_iter_current || !element)
+		return result;
+	first = list_first_entry(&data->list.list, struct mpu6050_data_list, list);
+	if (!first)
+		return result;
+	data->element_iter = first;
+	*element = first->data;
+	result = true;
+	return result;
 }
 
-struct mpu6050_data_list *get_next_element(struct mpu6050_data_list *element)
+bool get_next_element(struct mpu6050_data_holder *data_,
+	struct mpu6050_data_elements *element)
 {
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
 	struct mpu6050_data_list* next = NULL;
-	if (!element)
-		return next;
-	next = list_next_entry(element, list);
-	return next;
+	bool result = false;
+	if (!data || !data->element_iter_current ||
+		!element || !data->element_iter)
+		return result;
+	if (data->element_iter == data->element_iter_current)
+		next = data->element_iter;
+	else
+		next = list_next_entry(data->element_iter, list);
+
+	if (!next)
+		return result;
+
+	data->element_iter = next;
+	*element = next->data;
+	result = true;
+	return result;
+}
+
+bool is_last_element(struct mpu6050_data_holder *data_)
+{
+	struct mpu6050_data_holder_internal *data =
+		(struct mpu6050_data_holder_internal *)data_;
+	bool result = true;
+	if (!data || !data->element_iter_current || !data->element_iter)
+		return result;
+	if (data->element_iter != data->element_iter_current)
+		result = false;
+
+	return result;
 }

@@ -13,8 +13,6 @@
 
 /* data */
 #define ELEMENTS_COUNT 10
-static struct mpu6050_data_holder g_mpu6050_data;
-
 
 /* functionality */
 static size_t get_attribute_index(struct kobj_attribute const *attribute);
@@ -22,16 +20,17 @@ static size_t get_attribute_index(struct kobj_attribute const *attribute);
 static int mpu6050_read_data(bool debug)
 {
 	int temp;
-	const struct i2c_client *drv_client = g_mpu6050_data.drv_client;
-	struct mpu6050_data_elements* current_element =
-		get_active_element(&g_mpu6050_data);
+	const struct i2c_client *drv_client = get_mpu6050_data()->drv_client;
+	struct mpu6050_data_elements current_element;
+	bool has_element =
+		get_active_element(get_mpu6050_data(), &current_element);
 	struct mpu6050_data_elements element;
 	u64 msecs = jiffies_to_msecs(get_jiffies_64());
 
 	if (drv_client == 0)
 		return -ENODEV;
-	if (current_element) {
-		u64 diff = msecs - current_element->extra_data[INDEX_TIMESTAMP];
+	if (has_element) {
+		u64 diff = msecs - current_element.extra_data[INDEX_TIMESTAMP];
 		if (diff < MSEC_PER_SEC) {
 			if (debug)
 				dev_info(&drv_client->dev, "data reading skipped: %llu\n",
@@ -63,7 +62,7 @@ static int mpu6050_read_data(bool debug)
 	/* Extra data */
 	element.extra_data[INDEX_TIMESTAMP] = msecs;
 
-	add_mpu6050_element(&g_mpu6050_data, &element);
+	add_mpu6050_element(get_mpu6050_data(), &element);
 
 	if (debug) {
 		dev_info(&drv_client->dev, "sensor data read:\n");
@@ -121,7 +120,7 @@ static int mpu6050_probe(struct i2c_client *drv_client,
 	i2c_smbus_write_byte_data(drv_client, REG_PWR_MGMT_1, 0);
 	i2c_smbus_write_byte_data(drv_client, REG_PWR_MGMT_2, 0);
 
-	g_mpu6050_data.drv_client = drv_client;
+	get_mpu6050_data()->drv_client = drv_client;
 
 	dev_info(&drv_client->dev, "i2c driver probed\n");
 	return 0;
@@ -129,7 +128,7 @@ static int mpu6050_probe(struct i2c_client *drv_client,
 
 static int mpu6050_remove(struct i2c_client *drv_client)
 {
-	g_mpu6050_data.drv_client = 0;
+	get_mpu6050_data()->drv_client = 0;
 
 	dev_info(&drv_client->dev, "i2c driver removed\n");
 	return 0;
@@ -155,10 +154,14 @@ static ssize_t data_show(struct kobject *kobj,
 				struct kobj_attribute *attr, char *buf)
 {
 	size_t index = get_attribute_index(attr);
-	mpu6050_read_data(true);
+	struct mpu6050_data_elements current_element;
+	bool has_element;
 
-	if (index < INDEX_COUNT && g_mpu6050_data.element_iter_current)
-		sprintf(buf, "%d\n", g_mpu6050_data.element_iter_current->data.data[index]);
+	mpu6050_read_data(true);
+	has_element = get_active_element(get_mpu6050_data(), &current_element);
+
+	if (index < INDEX_COUNT && has_element)
+		sprintf(buf, "%d\n", current_element.data[index]);
 	else
 		buf[0] = '\0';
 	return strlen(buf);
@@ -255,9 +258,9 @@ static int __init mpu6050_init(void)
 	}
 	pr_info("mpu6050: sysfs data attributes created\n");
 
-	init_mpu6050_data(&g_mpu6050_data, ELEMENTS_COUNT, mpu6050_read_data);
+	init_mpu6050_data(get_mpu6050_data(), ELEMENTS_COUNT, mpu6050_read_data);
 
-	ret = init_cdevs(cdevs, &g_mpu6050_data);
+	ret = init_cdevs(cdevs, get_mpu6050_data());
 	if (ret) {
 		pr_err("mpu6050: failed to create cdevs: %d\n", ret);
 		goto error3;
@@ -267,7 +270,7 @@ static int __init mpu6050_init(void)
 	return 0;
 
 error3:
-	free_mpu6050_data(&g_mpu6050_data);
+	free_mpu6050_data(get_mpu6050_data());
 error2:
 	free_sysfs();
 error1:
@@ -278,7 +281,7 @@ error1:
 static void __exit mpu6050_exit(void)
 {
 	free_cdevs(get_cdevs());
-	free_mpu6050_data(&g_mpu6050_data);
+	free_mpu6050_data(get_mpu6050_data());
 	free_sysfs();
 
 	i2c_del_driver(&mpu6050_i2c_driver);

@@ -10,7 +10,7 @@ struct cdev_instance {
 	dev_t dev_no;
 	dev_t read_all;
 	struct cdev *cdev;
-	struct mpu6050_data_list *data_iter;
+	bool first_element;
 };
 
 struct cdevs_holder {
