@@ -125,8 +125,6 @@ static int open_cdev(struct inode *node, struct file *file)
 			cdev->read_all = false;
 			cdev->first_element = true;
 		}
-
-		read_data(get_cdevs());
 	}
 
 	return 0;
