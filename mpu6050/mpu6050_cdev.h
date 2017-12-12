@@ -1,6 +1,6 @@
 #include <linux/fs.h>
 #include <linux/cdev.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
 #include "mpu6050_data.h"
 

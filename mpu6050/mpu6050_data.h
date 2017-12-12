@@ -35,7 +35,7 @@ struct mpu6050_data_holder {
 	int (*read_data)(bool debug);
 };
 
-struct mpu6050_data_holder* get_mpu6050_data(void);
+struct mpu6050_data_holder *get_mpu6050_data(void);
 void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	int (*read_data)(bool debug));
 void free_mpu6050_data(struct mpu6050_data_holder *data_);

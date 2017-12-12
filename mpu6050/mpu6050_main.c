@@ -33,6 +33,7 @@ static int mpu6050_read_data(bool debug)
 		return -ENODEV;
 	if (has_element) {
 		u64 diff = msecs - current_element.extra_data[INDEX_TIMESTAMP];
+
 		if (diff < MSEC_PER_SEC) {
 			if (debug)
 				dev_info(&drv_client->dev, "data reading skipped: %llu\n",
@@ -43,22 +44,29 @@ static int mpu6050_read_data(bool debug)
 
 	/* accel */
 	element.data[INDEX_ACCEL_X] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_XOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_ACCEL_XOUT_H));
 	element.data[INDEX_ACCEL_Y] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_YOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_ACCEL_YOUT_H));
 	element.data[INDEX_ACCEL_Z] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_ACCEL_ZOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_ACCEL_ZOUT_H));
 	/* gyro */
 	element.data[INDEX_GYRO_X] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_XOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_GYRO_XOUT_H));
 	element.data[INDEX_GYRO_Y] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_YOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_GYRO_YOUT_H));
 	element.data[INDEX_GYRO_Z] =
-		(s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_GYRO_ZOUT_H));
+		(s16)((u16)i2c_smbus_read_word_swapped(
+			drv_client, REG_GYRO_ZOUT_H));
 	/* Temperature in degrees C =
 	 * (TEMP_OUT Register Value  as a signed quantity)/340 + 36.53
 	 */
-	temp = (s16)((u16)i2c_smbus_read_word_swapped(drv_client, REG_TEMP_OUT_H));
+	temp = (s16)((u16)i2c_smbus_read_word_swapped(
+		drv_client, REG_TEMP_OUT_H));
 	element.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
 
 	/* Extra data */
@@ -169,24 +177,24 @@ static ssize_t data_show(struct kobject *kobj,
 }
 
 static const struct kobj_attribute g_kobj_attributes[INDEX_COUNT] = {
-	__ATTR(accel_x, S_IRUGO, data_show, NULL),
-	__ATTR(accel_y, S_IRUGO, data_show, NULL),
-	__ATTR(accel_z, S_IRUGO, data_show, NULL),
-	__ATTR(gyro_x, S_IRUGO, data_show, NULL),
-	__ATTR(gyro_y, S_IRUGO, data_show, NULL),
-	__ATTR(gyro_z, S_IRUGO, data_show, NULL),
-	__ATTR(temperature, S_IRUGO, data_show, NULL)
+	__ATTR(accel_x, 0444, data_show, NULL),
+	__ATTR(accel_y, 0444, data_show, NULL),
+	__ATTR(accel_z, 0444, data_show, NULL),
+	__ATTR(gyro_x, 0444, data_show, NULL),
+	__ATTR(gyro_y, 0444, data_show, NULL),
+	__ATTR(gyro_z, 0444, data_show, NULL),
+	__ATTR(temperature, 0444, data_show, NULL)
 };
 
 static const struct attribute *g_attributes[INDEX_COUNT + 1] = {
-    &g_kobj_attributes[INDEX_ACCEL_X].attr,
-    &g_kobj_attributes[INDEX_ACCEL_Y].attr,
-    &g_kobj_attributes[INDEX_ACCEL_Z].attr,
-    &g_kobj_attributes[INDEX_GYRO_X].attr,
-    &g_kobj_attributes[INDEX_GYRO_Y].attr,
-    &g_kobj_attributes[INDEX_GYRO_Z].attr,
-    &g_kobj_attributes[INDEX_TEMPERATURE].attr,
-    NULL,
+	&g_kobj_attributes[INDEX_ACCEL_X].attr,
+	&g_kobj_attributes[INDEX_ACCEL_Y].attr,
+	&g_kobj_attributes[INDEX_ACCEL_Z].attr,
+	&g_kobj_attributes[INDEX_GYRO_X].attr,
+	&g_kobj_attributes[INDEX_GYRO_Y].attr,
+	&g_kobj_attributes[INDEX_GYRO_Z].attr,
+	&g_kobj_attributes[INDEX_TEMPERATURE].attr,
+	NULL,
 };
 
 /* Gets a number of attributes + 1 (null-terminated) */
@@ -196,8 +204,10 @@ static size_t const attributes_count(void)
 	size_t const count = INDEX_COUNT + 1;
 	#else
 	size_t const full_size = sizeof(g_attributes);
-	static size_t const count = full_size ? full_size / sizeof(g_attributes[0]) : 0;
+	static size_t const count =
+		full_size ? full_size / sizeof(g_attributes[0]) : 0;
 	#endif
+
 	return count;
 }
 
@@ -206,13 +216,13 @@ static size_t get_attribute_index(struct kobj_attribute const *attribute)
 {
 	size_t const count = attributes_count();
 	size_t index = 0;
-	if (count)
-	{
+
+	if (count) {
 		index = (size_t)(attribute - &g_kobj_attributes[0]);
-		if (index >= count)
-		{
-			pr_err("%s wrong computing of data index, corrected: %ld -> %ld\n",
-				THIS_MODULE->name, (long)index, (long)(count - 1));
+		if (index >= count) {
+			pr_err("%s wrong data index, corrected: %ld -> %ld\n",
+				THIS_MODULE->name, (long)index,
+				(long)(count - 1));
 			index = count - 1;
 		}
 	}
@@ -222,8 +232,8 @@ static size_t get_attribute_index(struct kobj_attribute const *attribute)
 static void read_timer(unsigned long data);
 
 /* Module initialization */
-static struct kobject *g_kobject = NULL;
-static struct task_struct *g_reading_thread = NULL;
+static struct kobject *g_kobject;
+static struct task_struct *g_reading_thread;
 DECLARE_COMPLETION(g_read_comletion);
 DEFINE_TIMER(g_read_timer, read_timer, 0, 0);
 DEFINE_SPINLOCK(g_read_timer_lock);
@@ -232,18 +242,18 @@ DEFINE_SPINLOCK(g_read_timer_lock);
 void read_timer(unsigned long param)
 {
 	complete(&g_read_comletion);
-	pr_info("mpu6050 %s: timer fired:\n", __FUNCTION__);
+	pr_info("mpu6050 %s: timer fired:\n", __func__);
 }
 
 int reading_thread(void *data)
 {
 	u64 time;
 	int ret;
-	pr_info("mpu6050 %s started\n", __FUNCTION__);
 
-	while (!kthread_should_stop())
-	{
-		pr_info("mpu6050 %s waiting\n", __FUNCTION__);
+	pr_info("mpu6050 %s started\n", __func__);
+
+	while (!kthread_should_stop()) {
+		pr_info("mpu6050 %s waiting\n", __func__);
 		wait_for_completion(&g_read_comletion);
 		if (!kthread_should_stop())
 			mpu6050_read_data(false);
@@ -251,11 +261,11 @@ int reading_thread(void *data)
 			break;
 		time = get_jiffies_64() + msecs_to_jiffies(TIMER_DELAY_MSEC);
 		ret = mod_timer(&g_read_timer, time);
-		pr_info("mpu6050 %s: timer rescheduled: %d\n", __FUNCTION__, ret);
+		pr_info("mpu6050 %s: timer rescheduled: %d\n", __func__, ret);
 	}
 
 	g_reading_thread = NULL;
-	pr_info("mpu6050 %s finished\n", __FUNCTION__);
+	pr_info("mpu6050 %s finished\n", __func__);
 	return 0;
 }
 
@@ -292,12 +302,14 @@ static int __init mpu6050_init(void)
 
 	ret = sysfs_create_files(g_kobject, g_attributes);
 	if (ret) {
-		pr_err("mpu6050: failed to create sysfs data attributes: %d\n", ret);
+		pr_err("mpu6050: failed to create sysfs data attributes: %d\n",
+			ret);
 		goto error2;
 	}
 	pr_info("mpu6050: sysfs data attributes created\n");
 
-	init_mpu6050_data(get_mpu6050_data(), ELEMENTS_COUNT, mpu6050_read_data);
+	init_mpu6050_data(
+		get_mpu6050_data(), ELEMENTS_COUNT, mpu6050_read_data);
 
 	ret = init_cdevs(cdevs, get_mpu6050_data());
 	if (ret) {
@@ -333,8 +345,8 @@ error1:
 static void __exit mpu6050_exit(void)
 {
 	int result;
-	if (g_reading_thread)
-	{
+
+	if (g_reading_thread) {
 		complete(&g_read_comletion);
 		kthread_stop(g_reading_thread);
 	}

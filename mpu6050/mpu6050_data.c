@@ -11,12 +11,12 @@ struct mpu6050_data_holder_internal {
 };
 
 static struct mpu6050_data_holder_internal g_mpu6050_data = {
-	lock: __SPIN_LOCK_UNLOCKED(lock)
+	.lock = __SPIN_LOCK_UNLOCKED(lock)
 };
 
-struct mpu6050_data_holder* get_mpu6050_data(void)
+struct mpu6050_data_holder *get_mpu6050_data(void)
 {
-	return (struct mpu6050_data_holder*)&g_mpu6050_data;
+	return (struct mpu6050_data_holder *)&g_mpu6050_data;
 }
 
 void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
@@ -25,6 +25,7 @@ void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	size_t const element_size = sizeof(struct mpu6050_data_list);
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
+
 	if (!data)
 		return;
 	data->elements_count = 0;
@@ -35,10 +36,11 @@ void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	INIT_LIST_HEAD(&data->list.list);
 
 	do {
-		struct mpu6050_data_list *element = kzalloc(element_size, GFP_KERNEL);
+		struct mpu6050_data_list *element = kzalloc(
+			element_size, GFP_KERNEL);
 
 		pr_info("%s %s: element %p\n",
-			THIS_MODULE->name, __FUNCTION__, element);
+			THIS_MODULE->name, __func__, element);
 		if (!element)
 			break;
 		INIT_LIST_HEAD(&element->list);
@@ -54,12 +56,14 @@ void free_mpu6050_data(struct mpu6050_data_holder *data_)
 	struct mpu6050_data_list *node, *tmp;
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
+
 	if (!data)
 		return;
 
 	spin_lock(&data->lock);
 	list_for_each_entry_safe(node, tmp, &data->list.list, list)	{
-		pr_info("%s %s: freeing node %p", THIS_MODULE->name, __FUNCTION__, node);
+		pr_info("%s %s: freeing node %p",
+			THIS_MODULE->name, __func__, node);
 		list_del(&node->list);
 		kfree(node);
 	}
@@ -72,46 +76,45 @@ void add_mpu6050_element(struct mpu6050_data_holder *data_,
 	int is_last = false;
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
+
 	if (!data || !element)
 		return;
 
 	spin_lock(&data->lock);
 	if (!data->element_iter_current) {
-		data->element_iter_current =
-			list_first_entry(&data->list.list, struct mpu6050_data_list, list);
-	}
-	else {
+		data->element_iter_current = list_first_entry(
+			&data->list.list, struct mpu6050_data_list, list);
+	} else {
 		/* check if its the last element */
-		is_last = list_is_last(&data->element_iter_current->list, &data->list.list);
+		is_last = list_is_last(
+			&data->element_iter_current->list, &data->list.list);
 		if (is_last) {
-			struct mpu6050_data_list *first =
-				list_first_entry(&data->list.list, struct mpu6050_data_list, list);
+			struct mpu6050_data_list *first = list_first_entry(
+				&data->list.list,
+				struct mpu6050_data_list, list);
 			if (first) {
 				/* move first to the last and use it */
 				list_move_tail(&first->list, &data->list.list);
 				data->element_iter_current = list_next_entry(
 					data->element_iter_current, list);
 			}
-		}
-		else {
+		} else {
 			data->element_iter_current = list_next_entry(
 				data->element_iter_current, list);
 		}
 	}
 
 	if (data->element_iter_current) {
-		memcpy( data->element_iter_current->data.data, element->data,
+		memcpy(data->element_iter_current->data.data, element->data,
 			sizeof(data->element_iter_current->data.data));
-		memcpy( data->element_iter_current->data.extra_data, element->extra_data,
+		memcpy(data->element_iter_current->data.extra_data,
+			element->extra_data,
 			sizeof(data->element_iter_current->data.extra_data));
-		/* pr_info("%s %s: was_last: %d next %p", THIS_MODULE->name, __FUNCTION__,
-			is_last, data->element_iter_current);
-		*/
-	}
-	else {
-		/* pr_err("%s %s: data holder is not initialized properly",
-			THIS_MODULE->name, __FUNCTION__);
-		*/
+		/* pr_info("%s %s: was_last: %d next %p", THIS_MODULE->name, */
+		/*	__func__, is_last, data->element_iter_current); */
+	} else {
+		/* pr_err("%s %s: data holder is not initialized properly", */
+		/*	THIS_MODULE->name, __func__); */
 	}
 	spin_unlock(&data->lock);
 }
@@ -122,6 +125,7 @@ bool get_active_element(struct mpu6050_data_holder *data_,
 	bool result = false;
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
+
 	if (!data || !element)
 		return result;
 
@@ -130,6 +134,7 @@ bool get_active_element(struct mpu6050_data_holder *data_,
 		goto error1;
 	*element = data->element_iter_current->data;
 	result = true;
+
 error1:
 	spin_unlock(&data->lock);
 	return result;
@@ -140,20 +145,23 @@ bool get_first_element(struct mpu6050_data_holder *data_,
 {
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
-	struct mpu6050_data_list* first = NULL;
+	struct mpu6050_data_list *first = NULL;
 	bool result = false;
+
 	if (!data || !data->element_iter_current || !element)
 		return result;
 
 	spin_lock(&data->lock);
 	if (!data->element_iter_current)
 		goto error1;
-	first = list_first_entry(&data->list.list, struct mpu6050_data_list, list);
+	first = list_first_entry(
+		&data->list.list, struct mpu6050_data_list, list);
 	if (!first)
 		goto error1;
 	data->element_iter = first;
 	*element = first->data;
 	result = true;
+
 error1:
 	spin_unlock(&data->lock);
 	return result;
@@ -164,8 +172,9 @@ bool get_next_element(struct mpu6050_data_holder *data_,
 {
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
-	struct mpu6050_data_list* next = NULL;
+	struct mpu6050_data_list *next = NULL;
 	bool result = false;
+
 	if (!data || !element)
 		return result;
 
@@ -184,6 +193,7 @@ bool get_next_element(struct mpu6050_data_holder *data_,
 	data->element_iter = next;
 	*element = next->data;
 	result = true;
+
 error1:
 	spin_unlock(&data->lock);
 	return result;
@@ -194,6 +204,7 @@ bool is_last_element(struct mpu6050_data_holder *data_)
 	struct mpu6050_data_holder_internal *data =
 		(struct mpu6050_data_holder_internal *)data_;
 	bool result = true;
+
 	if (!data)
 		return result;
 
@@ -202,6 +213,7 @@ bool is_last_element(struct mpu6050_data_holder *data_)
 		goto error1;
 	if (data->element_iter != data->element_iter_current)
 		result = false;
+
 error1:
 	spin_unlock(&data->lock);
 	return result;
