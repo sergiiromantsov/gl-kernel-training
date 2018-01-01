@@ -16,11 +16,11 @@ static struct mpu6050_data_holder_internal g_mpu6050_data = {
 
 struct mpu6050_data_holder *get_mpu6050_data(void)
 {
-	return (struct mpu6050_data_holder *)&g_mpu6050_data;
+	return &g_mpu6050_data.public_holder;
 }
 
-void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
-	int (*read_data)(bool debug))
+void init_mpu6050_data(struct mpu6050_data_holder *data_,
+	size_t elements_count)
 {
 	size_t const element_size = sizeof(struct mpu6050_data_list);
 	struct mpu6050_data_holder_internal *data =
@@ -31,7 +31,6 @@ void init_mpu6050_data(struct mpu6050_data_holder *data_, size_t elements_count,
 	data->elements_count = 0;
 	data->element_iter_current = NULL;
 	data->element_iter = NULL;
-	data->public_holder.read_data = read_data;
 
 	INIT_LIST_HEAD(&data->list.list);
 

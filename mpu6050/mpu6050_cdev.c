@@ -5,6 +5,7 @@ static int release_cdev(struct inode *, struct file *);
 static ssize_t read_line(struct file *, char __user *, size_t, loff_t *);
 static ssize_t read_full(struct file *, char __user *, size_t, loff_t *);
 
+static struct cdevs_holder g_cdevs_holder;
 
 struct file_operations const g_fops_line = {
 	.read = read_line,
@@ -22,8 +23,6 @@ struct file_operations const g_fops_full = {
 
 struct cdevs_holder *get_cdevs(void)
 {
-	static struct cdevs_holder g_cdevs_holder;
-
 	return &g_cdevs_holder;
 }
 
@@ -85,7 +84,7 @@ int init_cdevs(struct cdevs_holder *cdevs, struct mpu6050_data_holder *data)
 	if (result < 0)
 		goto error1;
 	cdevs->cdev_full.major = MAJOR(cdevs->cdev_full.dev_no);
-	cdevs->cdev_line.read_all = false;
+	cdevs->cdev_full.read_all = false;
 	cdevs->cdev_full.cdev = cdev_alloc();
 	cdevs->cdev_full.cdev->ops = &g_fops_full;
 	cdevs->cdev_full.cdev->owner = THIS_MODULE;
@@ -127,38 +126,37 @@ static int release_cdev(struct inode *node, struct file *file)
 	return 0;
 }
 
-static char const format_line[] = "%lu: gyro=%d:%d:%d acc=%d:%d:%d\n";
-static size_t const size_line = sizeof(format_line) + 21 + 6 * 11;
+static char const g_format_line[] = "%lu: gyro=%d:%d:%d acc=%d:%d:%d\n";
+static size_t const g_size_line = sizeof(g_format_line) + 21 + 6 * 11;
 
 static ssize_t read_to_user_buffer(struct mpu6050_data_elements *element,
 	char __user *buffer_to, size_t count)
 {
 	ssize_t result = 0;
+	char buffer[g_size_line];
+	size_t length = 0;
+	int printed = 0;
 
 	if (!element || !buffer_to || !count)
 		return result;
-	if (count >= size_line) {
-		char buffer[size_line];
-		size_t length = 1;
-		int printed = snprintf(buffer, size_line, format_line,
-			(unsigned long)element->extra_data[INDEX_TIMESTAMP],
-			element->data[INDEX_GYRO_X],
-			element->data[INDEX_GYRO_Y],
-			element->data[INDEX_GYRO_Z],
-			element->data[INDEX_ACCEL_X],
-			element->data[INDEX_ACCEL_Y],
-			element->data[INDEX_ACCEL_Z]);
-		length = printed + 1;
-		length = length < size_line ? length : size_line;
-		buffer[length - 1] = '\0';
-		result = copy_to_user(buffer_to, buffer, length);
-		if (!result)
-			result = length;
-		else
-			result = 0;
-	} else {
-		/* TODO: implement dyn-buffer */
-	}
+
+	printed = snprintf(buffer, g_size_line, g_format_line,
+		(unsigned long)element->extra_data[EXTRA_INDEX_TIMESTAMP],
+		element->data[INDEX_GYRO_X],
+		element->data[INDEX_GYRO_Y],
+		element->data[INDEX_GYRO_Z],
+		element->data[INDEX_ACCEL_X],
+		element->data[INDEX_ACCEL_Y],
+		element->data[INDEX_ACCEL_Z]);
+	length = printed > 0 && printed < g_size_line ? printed + 1 : 1;
+	length = length < count ? length : count;
+	buffer[length - 1] = '\0';
+	result = copy_to_user(buffer_to, buffer, length);
+	if (!result)
+		result = length;
+	else
+		result = 0;
+
 	return result;
 }
 
@@ -187,7 +185,7 @@ static ssize_t read_line(
 	cdev->read_all = true;
 	pr_info("%s %s read to %p/%lu from %lu buffer bytes -> %lu\n",
 		THIS_MODULE->name, __func__,
-		buffer_to, (long)count, (long)size_line, (long)result);
+		buffer_to, (long)count, (long)g_size_line, (long)result);
 	return result;
 }
 
@@ -228,7 +226,7 @@ static ssize_t read_full(
 
 	pr_info("%s %s read to %p/%lu from %lu buffer bytes -> %lu, read_all: %s\n",
 		THIS_MODULE->name, __func__,
-		buffer_to, (long)count, (long)size_line, (long)result,
+		buffer_to, (long)count, (long)g_size_line, (long)result,
 		cdev->read_all ? "yes" : "no");
 	return result;
 }

@@ -19,7 +19,7 @@
 /* functionality */
 static size_t get_attribute_index(struct kobj_attribute const *attribute);
 
-static int mpu6050_read_data(bool debug)
+static int mpu6050_read_data(bool print_out)
 {
 	int temp;
 	const struct i2c_client *drv_client = get_mpu6050_data()->drv_client;
@@ -32,10 +32,11 @@ static int mpu6050_read_data(bool debug)
 	if (drv_client == 0)
 		return -ENODEV;
 	if (has_element) {
-		u64 diff = msecs - current_element.extra_data[INDEX_TIMESTAMP];
+		u64 diff = msecs -
+			current_element.extra_data[EXTRA_INDEX_TIMESTAMP];
 
 		if (diff < MSEC_PER_SEC) {
-			if (debug)
+			if (print_out)
 				dev_info(&drv_client->dev, "data reading skipped: %llu\n",
 					diff);
 			return 0;
@@ -70,11 +71,11 @@ static int mpu6050_read_data(bool debug)
 	element.data[INDEX_TEMPERATURE] = (temp + 12420 + 170) / 340;
 
 	/* Extra data */
-	element.extra_data[INDEX_TIMESTAMP] = msecs;
+	element.extra_data[EXTRA_INDEX_TIMESTAMP] = msecs;
 
 	add_mpu6050_element(get_mpu6050_data(), &element);
 
-	if (debug) {
+	if (print_out) {
 		dev_info(&drv_client->dev, "sensor data read:\n");
 		dev_info(&drv_client->dev, "ACCEL[X,Y,Z] = [%d, %d, %d]\n",
 			element.data[INDEX_ACCEL_X],
@@ -87,7 +88,7 @@ static int mpu6050_read_data(bool debug)
 		dev_info(&drv_client->dev, "TEMP = %d\n",
 			element.data[INDEX_TEMPERATURE]);
 		dev_info(&drv_client->dev, "TIMESTAMP = %llu\n",
-			element.extra_data[INDEX_TIMESTAMP]);
+			element.extra_data[EXTRA_INDEX_TIMESTAMP]);
 	}
 	return 0;
 }
@@ -197,24 +198,10 @@ static const struct attribute *g_attributes[INDEX_COUNT + 1] = {
 	NULL,
 };
 
-/* Gets a number of attributes + 1 (null-terminated) */
-static size_t const attributes_count(void)
-{
-	#if 1
-	size_t const count = INDEX_COUNT + 1;
-	#else
-	size_t const full_size = sizeof(g_attributes);
-	static size_t const count =
-		full_size ? full_size / sizeof(g_attributes[0]) : 0;
-	#endif
-
-	return count;
-}
-
 /* Gets index of attribute in common array of data */
 static size_t get_attribute_index(struct kobj_attribute const *attribute)
 {
-	size_t const count = attributes_count();
+	size_t const count = INDEX_COUNT + 1;
 	size_t index = 0;
 
 	if (count) {
@@ -309,7 +296,7 @@ static int __init mpu6050_init(void)
 	pr_info("mpu6050: sysfs data attributes created\n");
 
 	init_mpu6050_data(
-		get_mpu6050_data(), ELEMENTS_COUNT, mpu6050_read_data);
+		get_mpu6050_data(), ELEMENTS_COUNT);
 
 	ret = init_cdevs(cdevs, get_mpu6050_data());
 	if (ret) {
@@ -318,7 +305,7 @@ static int __init mpu6050_init(void)
 	}
 
 	g_reading_thread = kthread_run(reading_thread, NULL, "mpu6050_read_th");
-	if (!g_reading_thread) {
+	if (IS_ERR(g_reading_thread)) {
 		pr_err("mpu6050: failed to create reading thread\n");
 		goto error4;
 	}
@@ -346,12 +333,13 @@ static void __exit mpu6050_exit(void)
 {
 	int result;
 
-	if (g_reading_thread) {
-		complete(&g_read_comletion);
-		kthread_stop(g_reading_thread);
-	}
 	result = del_timer_sync(&g_read_timer);
 	pr_info("mpu6050: timer deleted %d\n", result);
+
+	if (g_reading_thread) {
+		kthread_stop(g_reading_thread);
+		complete(&g_read_comletion);
+	}
 
 	free_cdevs(get_cdevs());
 	free_mpu6050_data(get_mpu6050_data());

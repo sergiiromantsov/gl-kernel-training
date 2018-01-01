@@ -8,7 +8,7 @@
 struct cdev_instance {
 	unsigned int major;
 	dev_t dev_no;
-	dev_t read_all;
+	bool read_all;
 	struct cdev *cdev;
 	bool first_element;
 };
